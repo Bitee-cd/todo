@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>To do App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+    <style type="text/css">
+        body{
+        background:rgb(54,217,182);
+        background: linear-gradient(90deg, rgba(54,217,182,1) 0%,rgba(32,152,126,1) 43%, rgba(0,212,255,1) 100%);
+        }
+        #task-container{
+        max-width:600px;
+        margin:0 auto;
+        box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+        background-color:#fff;
+        margin-top:100px;
+        margin-bottom:100px;
+        justify-content:space-around;
+        align-items:flex-start;
+        }
+        #form-wrapper{
+        position:-webkit-sticky;
+        position:sticky;
+        top:0rem;
+        border-bottom:1px solid;
+        background-color:#fff;
+        box-shadow:0 3px 8px rgba(0,0,0,0.25);
+        padding:40px;
+        }
+        #submit{
+        background-color:#36d9b6;
+        border-radius:0;
+        border:0;
+        color:#fff;
+        }
+        .flex-wrapper{
+        display:flex;
+        }
+        .task-wrapper{
+        margin:5px;
+        padding:5px;
+        padding:20px;
+        cursor:pointer;
+        border-bottom:1px solid #e9e9e9;
+        color:#686868;
+        }
+    </style>
+  </head>
+  <body>
+        <div class="container">
+            <div id="task-container">
+                <div id="form-wrapper">
+                    <form id="form">
+                        <div class="flex-wrapper">
+                            <div style="flex:6">
+                                <input id="title" class="form-control" type="text"
+                                name="title" placeholder="Add task">
+                            </div>
+                            <div style="flex:1">
+                                <input id="submit" class="btn" type="submit">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="list-wrapper">
+
+                </div>
+            </div>
+        </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>
+  <script type="text/javascript">
+      /*
+      KEY COMPONENTS:
+      "activeItem"= null until an edit button is clicked. Will contain object of item we are editing
+      "list_snapshot"= will contain previous state of list . used for removing extra rows on list update
+
+      PROCESS:
+      1. Fetch Data and build rows "buildlist()"
+      2. Create Item on form submit
+      3. Edit Item click - Prefill form and change submit URL
+      4. delete item -send item id to delete url
+      5. Cross out completed task -Event handle updated item
+
+      NOTES:
+      -- Add event handlers to "edit","delete","title"
+      -- Render with strike through items completed
+      -- Remove extra data on re-render
+      -- CSRF Token
+      */
+      var activeItem = null
+      var list_snapshot = []
+      buildlist()
+    function buildlist(){
+    var wrapper = document.getElementById('list-wrapper')
+
+    url ='http://localhost:8000/api/task-list/'
+    fetch(url)
+    .then(res => res.json())
+    .then(function(data){
+    console.log("Data: ",data)
+    var list = data
+
+    for (var i in list){
+        try{
+        document.getElementById(`data-row-${i}`).remove()
+        }catch(err){
+        }
+         var title = `<span class="title">${list[i].title}</span>`
+        if (list[i].completed ===true){
+        title =`<strike class="title">${list[i].title}</strike>`
+        }
+        var item =
+        `
+        <div id ="data-row-${i}" class="task-wrapper flex-wrapper">
+            <div style="flex:7">
+                ${title}
+            </div>
+            <div style="flex:1">
+                <button class="btn btn-sm btn-outline-info edit " data-edit_id=${i}>Edit</button>
+            </div>
+            <div style="flex:1">
+                <button class="btn btn-sm btn-outline-danger delete" data-delete_id=${i}>Delete</button>
+            </div>
+        </div>
+        `
+        wrapper.innerHTML += item
+
+    }
+    if (list_snapshot.length > list.length){
+           for(var i=list.length; i<list_snapshot.length;i++){
+           document.getElementById(`data-row-${i}`).remove()
+           }
+       }
+    list_snapshot = list
+
+    for (var i in list){
+        var editBtn = document.getElementsByClassName('edit')[i]
+        var deleteBtn = document.getElementsByClassName('delete')[i]
+        var titleBtn = document.getElementsByClassName('title')[i]
+
+
+        editBtn.addEventListener('click',(function(item){
+            return function(){
+            editItem(item)
+            }
+        })(list[i]))
+
+        deleteBtn.addEventListener('click',(function(item){
+            return function(){
+            deleteItem(item)
+            }
+        })(list[i]))
+
+         titleBtn.addEventListener('click',(function(item){
+            return function(){
+            strikeUnstrike(item)
+            }
+        })(list[i]))
+    }
+    })
+    }
+    var form = document.getElementById('form-wrapper')
+    form.addEventListener('submit',function(e){
+    e.preventDefault()
+    var url ='http://localhost:8000/api/task-create/'
+    if(activeItem != null){
+     var url =`http://localhost:8000/api/task-update/${activeItem.id}/`
+     activeItem = null
+
+
+    }
+    title=document.getElementById('title').value
+    console.log('Form submitted')
+    fetch(url,{
+        method:'POST',
+        headers:{
+        'Content-type':'application/json'
+            },
+        body:JSON.stringify({'title':title})
+        }).then(function(response){
+            buildlist()
+            document.getElementById('form').reset()
+        })
+    })
+    function editItem(item){
+    console.log("item clicked",item)
+    activeItem = item
+    document.getElementById("title").value=activeItem.title
+    }
+
+    function deleteItem(item){
+    console.log(item)
+    var url =`http://localhost:8000/api/task-delete/${item.id}/`
+    fetch(`http://localhost:8000/api/task-delete/${item.id}/`,{
+    'method':'DELETE',
+    headers:{
+        'Content-type':'application/json'
+            },
+    }).then(res=>{
+        buildlist()
+    })
+    }
+
+    function strikeUnstrike(item){
+    item.completed = !item.completed
+     var url =`http://localhost:8000/api/task-update/${item.id}/`
+      fetch(url,{
+       method:'POST',
+        headers:{
+        'Content-type':'application/json'
+            },
+        body:JSON.stringify({'title':item.title,'completed':item.completed})
+        })
+        .then((response)=>buildlist())
+
+    }
+  </script>
+  </body>
+</html>

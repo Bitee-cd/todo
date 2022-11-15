@@ -1,0 +1,10 @@
+1. create virtual enviroment and activate
+2. create project
+3. create app
+4. add app in settings.py (installed apps)
+5. install django rest framework and add in settings.py installed apps
+6 Add path in urls.py for app in the project folder
+7 Create Models
+8. set up serializers(match models)
+9. set up views (match serializers,get,post or delete,request or response)
+10. set up urls in App directory( to match views)
